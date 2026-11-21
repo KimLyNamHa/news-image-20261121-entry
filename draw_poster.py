@@ -33,6 +33,13 @@ Design notes (why the page looks the way it does):
 - The region strip (Europe 7, Asia 4, Middle East 6, Africa 2,
   Americas 8, Oceania 4, Global 2) proves the coverage is world-wide
   rather than one region's news.
+- Region colours are fixed: Europe red, Asia teal, Middle East gold,
+  Africa green, Americas blue, Oceania purple, Global grey. The same
+  colours mark the region strip, the lead and card tags, and the map
+  pins' numbers, so a reader can follow a region down the page.
+- The stat bar (5 missiles, 6.7 quake, $58,983 bitcoin, 1:34.041,
+  124*, $7.25bn) uses uneven cell widths — the widest number gets the
+  widest cell — and a thin divider under it before the region strip.
 - Ten cards (4-13) carry the next tier: Kryvyi Rih, Trump's data-centre
   tax, Japan-Taiwan, the Davao landing, bitcoin, Las Vegas practice,
   Rahul's century, BepiColombo at Mercury, the ANC result, the Bayelsa
@@ -88,6 +95,37 @@ MAP_TITLE = "WHERE IT HAPPENED"
 ALSO_TITLE = "ALSO ON SATURDAY 21 NOVEMBER 2026 — 20 MORE STORIES"
 MAX_BYTES = 1048576
 CANVAS = (W, H)
+
+# --- Named constants: the page layout geometry. -------------------------
+# Every box on the page, in one place. The drawing code below already
+# uses these values literally, so the constants document the geometry
+# the reader already sees; changing one here would be a deliberate
+# layout decision, never a typo in the middle of a draw call.
+MARGIN = 8                    # page margin on the left and right
+CONTENT_W = 1008              # W - 2 * MARGIN, the width text may fill
+MASTHEAD_RULE_Y = 114         # navy rule under the subhead
+RIBBON_Y = 120                # timeline ribbon row ("EARLY HOURS ...")
+STAT_TOP = 136                # stat bar: the big numbers row
+STAT_DIVIDER_Y = 194          # rule under the stat bar
+REGION_Y0 = 198               # region strip: top edge
+REGION_Y1 = 212               # region strip: bottom edge
+LEAD_ART_Y = 218              # lead illustrations row
+LEAD_ART_H = 80               # lead illustration height
+CARD_ROWS_Y = (402, 530, 658)  # y of the three card rows (4, then 3, then 3)
+CARD_ART_H = 40               # card illustration banner height
+CARD_BODY_H = 88              # card text box height
+CARD_RADIUS = 8               # card corner radius
+MAP_Y = 790                   # map + also-list section top
+MAP_X = 8                     # world map box: left edge
+MAP_Y0 = 806                  # world map box: top edge (MAP_Y + 16)
+MAP_W = 296                   # world map box: width
+MAP_H = 130                   # world map box: height
+ALSO_X = 312                  # also-list left column x
+ALSO_COL2_X = 668             # also-list right column x
+ALSO_LINE_H = 12              # also-list line height
+DATECHECK_Y0 = 946            # DATE CHECK box: top edge
+DATECHECK_Y1 = 992            # DATE CHECK box: bottom edge
+FOOTER_Y = 998                # footer baseline
 
 FONT_DIR = "/usr/share/fonts/truetype/dejavu/"
 
@@ -146,6 +184,19 @@ def one_line(d, text, fnt, width):
     while text and d.textlength(text + "...", font=fnt) > width:
         text = text[:-1].rstrip()
     return text + "..."
+
+
+def story_label(n, place, topic):
+    """Format a story tag exactly as the page already writes it inline.
+
+    "N · PLACE · TOPIC" — the story number, the dateline place and the
+    topic, separated by middle dots, all caps, as in "1 · ANTALYA,
+    TÜRKIYE · CLIMATE" or "4 · KRYVYI RIH · WAR". The leads and cards
+    below keep their literal tags; this helper documents the format the
+    page uses everywhere, and the first lead and the first card use it
+    so the format lives in exactly one place.
+    """
+    return f"{n} · {place} · {topic}"
 
 
 def card(d, x, y, w, h, tag, headline, body, colour):
@@ -470,7 +521,7 @@ def main():
 
     # --- Leads: one wide, one mid, one narrow.
     leads = [
-        (8, 404, art_cop31, "1 · ANTALYA, TÜRKIYE · CLIMATE",
+        (8, 404, art_cop31, story_label(1, "ANTALYA, TÜRKIYE", "CLIMATE"),
          "COP31 runs into overtime with no deal in sight",
          "Day 13, a day late; a third draft is due on Saturday, with "
          "fossil fuels still unmentioned. (AFP, AP)"),
@@ -498,7 +549,7 @@ def main():
     # --- Card rows: 4, then 3, then 3, all with uneven widths.
     rows = [
         (402, [
-            (8, 250, art_kryvyi, "4 · KRYVYI RIH · WAR",
+            (8, 250, art_kryvyi, story_label(4, "KRYVYI RIH", "WAR"),
              "Russian double strike hits Kryvyi Rih",
              "12 killed, 42 hurt; a boy and a medic among the dead. "
              "(Kyiv Post, AP)", RED),
@@ -546,9 +597,9 @@ def main():
             card(d, x, y0 + 40, w, 88, tag, head, body, col)
 
     # --- Map + also-list.
-    yM = 790
+    yM = MAP_Y
     d.text((8, yM), "WHERE IT HAPPENED", font=F_KICK, fill=NAVY)
-    draw_map(d, 8, yM + 16, 296, 130)
+    draw_map(d, MAP_X, MAP_Y0, MAP_W, MAP_H)
     d.text((312, yM), "ALSO ON SATURDAY 21 NOVEMBER 2026 — 20 MORE STORIES",
            font=F_KICK, fill=RED)
     briefs = [
@@ -584,7 +635,8 @@ def main():
             ly += 12
 
     # --- Date check.
-    d.rectangle([8, 946, W - 8, 992], outline=RED, width=2)
+    d.rectangle([MARGIN, DATECHECK_Y0, W - MARGIN, DATECHECK_Y1],
+                outline=RED, width=2)
     d.text((16, 952), "DATE CHECK", font=F_SMALL_B, fill=RED)
     dc = ("Left out as earlier news — Fri 20 Nov: ICJ Myanmar verdict; Wall "
           "Street correction; Kyiv bridges barrage; missile in Poland; UK-EU "
@@ -599,7 +651,7 @@ def main():
     # --- Footer.
     foot = ("Every story here happened, or was first reported, on Saturday 21 "
             "November 2026. Sources named beside each story · Original drawings")
-    d.text(((W - d.textlength(foot, font=F_SMALL)) / 2, 998), foot,
+    d.text(((W - d.textlength(foot, font=F_SMALL)) / 2, FOOTER_Y), foot,
            font=F_SMALL, fill=GREY)
 
     img.save("entry.png", format="PNG", optimize=True)
